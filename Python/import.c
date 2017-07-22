@@ -1584,6 +1584,13 @@ PyImport_ImportModuleLevelObject(PyObject *name, PyObject *globals,
         }
     }
     else {
+      static int import_level;
+      struct timespec t1, t2;
+
+      clock_gettime(CLOCK_MONOTONIC, &t1);
+      import_level++;
+      //fprintf(stderr, "%*s+ %s\n", import_level, "", PyUnicode_AsUTF8(abs_name));
+
 #ifdef WITH_THREAD
         _PyImport_AcquireLock();
 #endif
@@ -1591,6 +1598,20 @@ PyImport_ImportModuleLevelObject(PyObject *name, PyObject *globals,
         mod = _PyObject_CallMethodIdObjArgs(interp->importlib,
                                             &PyId__find_and_load, abs_name,
                                             interp->import_func, NULL);
+
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        if (t1.tv_nsec > t2.tv_nsec) {
+          t2.tv_sec--;
+          t2.tv_nsec += 1000000000;
+          }
+          t2.tv_sec -= t1.tv_sec;
+          t2.tv_nsec -= t1.tv_nsec;
+          fprintf(stderr, "%*s- %s %ld.%09ld\n",
+                  import_level, "",
+                  PyUnicode_AsUTF8(abs_name),
+                  t2.tv_sec, t2.tv_nsec);
+          import_level--;
+
         if (mod == NULL) {
             goto error;
         }
